@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Plus, Trash2, CheckCircle, Circle, LogOut } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from './supabaseClient'
@@ -69,21 +69,12 @@ function App() {
 
     if (!isLoggedIn) {
         return (
-            <main className="glass" style={{ padding: '2rem', width: '400px', textAlign: 'center' }}>
+            <main className="glass p-8 w-[400px] text-center">
                 <h1 className="title">VIBE TODO</h1>
-                <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Experience the ultimate productivity vibe.</p>
+                <p className="text-gray-400 mb-8">Experience the ultimate productivity vibe.</p>
                 <button
                     onClick={handleLogin}
-                    style={{
-                        width: '100%',
-                        padding: '1rem',
-                        background: 'linear-gradient(to right, #00f2ff, #ff00c8)',
-                        border: 'none',
-                        borderRadius: '12px',
-                        color: 'white',
-                        fontWeight: 'bold',
-                        fontSize: '1rem'
-                    }}
+                    className="w-full p-4 bg-vibe-gradient rounded-xl text-white font-bold text-lg hover:opacity-90 transition-opacity"
                 >
                     GET STARTED
                 </button>
@@ -92,144 +83,109 @@ function App() {
     }
 
     return (
-        <main className="glass" style={{ padding: '2rem', width: '500px', minHeight: '600px' }}>
-            <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                <h1 className="title" style={{ fontSize: '1.5rem', marginBottom: 0 }}>VIBE TODO</h1>
-                <button onClick={handleLogout} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)' }}>
-                    <LogOut size={20} />
+        <main className="glass p-10 w-[550px] min-h-[700px] shadow-2xl transition-all duration-300">
+            <header className="flex justify-between items-center mb-10">
+                <h1 className="title !text-3xl !mb-0 !leading-tight">VIBE TODO</h1>
+                <button
+                    onClick={handleLogout}
+                    className="p-2 text-gray-400 hover:text-white hover:bg-white/10 rounded-full transition-all duration-200"
+                    title="Logout"
+                >
+                    <LogOut size={22} />
                 </button>
             </header>
 
-            <form onSubmit={addTodo} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '2rem' }}>
-                <div style={{ display: 'flex', gap: '10px' }}>
+            <form onSubmit={addTodo} className="flex flex-col gap-4 mb-10">
+                <div className="flex gap-3">
                     <input
                         type="text"
                         value={newTask}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTask(e.target.value)}
                         placeholder="What's your next vibe?"
-                        style={{
-                            flex: 1,
-                            background: 'rgba(255,255,255,0.05)',
-                            border: '1px solid var(--glass-border)',
-                            borderRadius: '12px',
-                            padding: '0.8rem 1rem',
-                            color: 'white',
-                            outline: 'none'
-                        }}
+                        className="flex-1 bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white outline-none focus:border-vibe-blue/50 focus:ring-1 focus:ring-vibe-blue/30 transition-all placeholder:text-gray-500"
                     />
                     <button
                         type="submit"
-                        style={{
-                            background: 'var(--accent-blue)',
-                            border: 'none',
-                            borderRadius: '12px',
-                            width: '45px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: 'black'
-                        }}
+                        className="bg-vibe-blue rounded-2xl w-[60px] flex items-center justify-center text-black hover:scale-105 active:scale-95 transition-all shadow-lg hover:shadow-vibe-blue/20"
                     >
-                        <Plus size={24} />
+                        <Plus size={28} />
                     </button>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '0 5px' }}>
-                    <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                        Deadline:
+                <div className="flex items-center gap-3 px-2">
+                    <label className="text-sm text-gray-400 flex items-center gap-2 cursor-pointer group">
+                        <span className="group-hover:text-vibe-pink transition-colors">Deadline:</span>
                         <input
                             type="date"
                             value={newDeadline}
                             onChange={(e) => setNewDeadline(e.target.value)}
-                            style={{
-                                background: 'rgba(255,255,255,0.1)',
-                                border: '1px solid var(--glass-border)',
-                                borderRadius: '6px',
-                                color: 'white',
-                                padding: '2px 5px',
-                                outline: 'none'
-                            }}
+                            className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-white text-xs outline-none focus:border-vibe-pink/50 transition-all cursor-pointer invert opacity-80 hover:opacity-100"
                         />
                     </label>
                 </div>
             </form>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className="flex flex-col gap-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
                 <AnimatePresence>
                     {todos.filter(t => !t.parent_id).map((todo: Todo) => (
-                        <div key={todo.id} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div key={todo.id} className="flex flex-col gap-3 group">
                             <motion.div
-                                initial={{ opacity: 0, y: 10 }}
+                                initial={{ opacity: 0, y: 15 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, x: -20 }}
-                                className="glass"
-                                style={{
-                                    padding: '1rem',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '12px',
-                                    border: '1px solid var(--glass-border)'
-                                }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className={`glass p-5 flex items-center gap-4 border border-white/5 hover:border-white/20 transition-all duration-300 shadow-lg ${todo.is_completed ? 'opacity-60' : ''}`}
                             >
                                 <button
                                     onClick={() => toggleTodo(todo.id)}
-                                    style={{ background: 'none', border: 'none', color: todo.is_completed ? 'var(--accent-blue)' : 'var(--text-secondary)' }}
+                                    className={`transition-all duration-300 transform hover:scale-110 ${todo.is_completed ? 'text-vibe-blue' : 'text-gray-500'}`}
                                 >
-                                    {todo.is_completed ? <CheckCircle size={24} /> : <Circle size={24} />}
+                                    {todo.is_completed ? <CheckCircle size={26} className="filter drop-shadow-[0_0_8px_rgba(0,242,255,0.4)]" /> : <Circle size={26} />}
                                 </button>
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                                    <span style={{
-                                        textDecoration: todo.is_completed ? 'line-through' : 'none',
-                                        color: todo.is_completed ? 'var(--text-secondary)' : 'white'
-                                    }}>
+                                <div className="flex-1 flex flex-col">
+                                    <span className={`text-lg transition-all duration-300 ${todo.is_completed ? 'line-through text-gray-500' : 'text-white'}`}>
                                         {todo.task}
                                     </span>
                                     {todo.deadline && (
-                                        <span style={{ fontSize: '0.7rem', color: 'var(--accent-pink)', opacity: 0.8 }}>
-                                            Due: {new Date(todo.deadline).toLocaleDateString()}
+                                        <span className="text-[11px] font-mono tracking-wider text-vibe-pink/80 mt-1 uppercase">
+                                            // D-DATE: {new Date(todo.deadline).toLocaleDateString()}
                                         </span>
                                     )}
                                 </div>
                                 <button
                                     onClick={() => deleteTodo(todo.id)}
-                                    style={{ background: 'none', border: 'none', color: '#ff4b4b' }}
+                                    className="p-2 text-gray-600 hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-all"
                                 >
-                                    <Trash2 size={20} />
+                                    <Trash2 size={22} />
                                 </button>
                             </motion.div>
 
                             {/* Subtasks */}
-                            <div style={{ paddingLeft: '2rem', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div className="pl-12 flex flex-col gap-3">
                                 {todos.filter((st: Todo) => st.parent_id === todo.id).map((subtask: Todo) => (
                                     <motion.div
                                         key={subtask.id}
-                                        initial={{ opacity: 0, height: 0 }}
-                                        animate={{ opacity: 1, height: 'auto' }}
-                                        className="glass"
-                                        style={{
-                                            padding: '0.6rem 0.8rem',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '10px',
-                                            fontSize: '0.9rem',
-                                            opacity: 0.9
-                                        }}
+                                        initial={{ opacity: 0, x: -10 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        className={`glass px-4 py-3 flex items-center gap-3 text-sm border border-white/5 hover:border-white/10 transition-all ${subtask.is_completed ? 'opacity-50' : ''}`}
                                     >
                                         <button
                                             onClick={() => toggleTodo(subtask.id)}
-                                            style={{ background: 'none', border: 'none', color: subtask.is_completed ? 'var(--accent-blue)' : 'var(--text-secondary)' }}
+                                            className={`transition-all ${subtask.is_completed ? 'text-vibe-blue' : 'text-gray-500'}`}
                                         >
                                             {subtask.is_completed ? <CheckCircle size={18} /> : <Circle size={18} />}
                                         </button>
-                                        <span style={{ flex: 1, textDecoration: subtask.is_completed ? 'line-through' : 'none' }}>
+                                        <span className={`flex-1 transition-all ${subtask.is_completed ? 'line-through text-gray-500' : 'text-gray-300'}`}>
                                             {subtask.task}
                                         </span>
-                                        <button onClick={() => deleteTodo(subtask.id)} style={{ background: 'none', border: 'none', color: '#ff4b4b' }}>
+                                        <button
+                                            onClick={() => deleteTodo(subtask.id)}
+                                            className="text-gray-600 hover:text-red-400 transition-colors"
+                                        >
                                             <Trash2 size={16} />
                                         </button>
                                     </motion.div>
                                 ))}
                                 {/* Inline Add Subtask */}
-                                <div style={{ display: 'flex', gap: '8px', padding: '0 5px' }}>
+                                <div className="flex gap-2 px-1 mt-1">
                                     <input
                                         type="text"
                                         placeholder="Add sub-vibe..."
@@ -247,16 +203,7 @@ function App() {
                                                 setTodos([...todos, sub]);
                                             }
                                         }}
-                                        style={{
-                                            flex: 1,
-                                            background: 'rgba(255,255,255,0.03)',
-                                            border: '1px dashed var(--glass-border)',
-                                            borderRadius: '8px',
-                                            padding: '0.4rem 0.8rem',
-                                            fontSize: '0.8rem',
-                                            color: 'white',
-                                            outline: 'none'
-                                        }}
+                                        className="flex-1 bg-white/[0.02] border border-dashed border-white/10 rounded-xl px-4 py-2 text-xs text-white outline-none focus:border-vibe-blue/30 placeholder:text-gray-600 transition-all focus:bg-white/[0.05]"
                                     />
                                 </div>
                             </div>
