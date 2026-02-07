@@ -11,11 +11,23 @@ interface Todo {
 }
 
 function App() {
-    const [todos, setTodos] = useState<Todo[]>([])
+    const [todos, setTodos] = useState<Todo[]>(() => {
+        const saved = localStorage.getItem('vibe_todos')
+        return saved ? JSON.parse(saved) : []
+    })
     const [newTask, setNewTask] = useState('')
-    const [isLoggedIn, setIsLoggedIn] = useState(false)
+    const [isLoggedIn, setIsLoggedIn] = useState(() => {
+        return localStorage.getItem('vibe_session') === 'true'
+    })
 
-    // Simulation: Since placeholders are used, we'll manually toggle auth for demo
+    useEffect(() => {
+        localStorage.setItem('vibe_todos', JSON.stringify(todos))
+    }, [todos])
+
+    useEffect(() => {
+        localStorage.setItem('vibe_session', String(isLoggedIn))
+    }, [isLoggedIn])
+
     const handleLogin = () => setIsLoggedIn(true)
     const handleLogout = () => setIsLoggedIn(false)
 
@@ -33,11 +45,11 @@ function App() {
     }
 
     const toggleTodo = (id: string) => {
-        setTodos(todos.map(t => t.id === id ? { ...t, is_completed: !t.is_completed } : t))
+        setTodos(todos.map((t: Todo) => t.id === id ? { ...t, is_completed: !t.is_completed } : t))
     }
 
     const deleteTodo = (id: string) => {
-        setTodos(todos.filter(t => t.id !== id))
+        setTodos(todos.filter((t: Todo) => t.id !== id))
     }
 
     if (!isLoggedIn) {
@@ -77,7 +89,7 @@ function App() {
                 <input
                     type="text"
                     value={newTask}
-                    onChange={(e) => setNewTask(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewTask(e.target.value)}
                     placeholder="What's your next vibe?"
                     style={{
                         flex: 1,
@@ -108,7 +120,7 @@ function App() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <AnimatePresence>
-                    {todos.map(todo => (
+                    {todos.map((todo: Todo) => (
                         <motion.div
                             key={todo.id}
                             initial={{ opacity: 0, y: 10 }}
