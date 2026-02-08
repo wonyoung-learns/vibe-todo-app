@@ -14,6 +14,13 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import { Toaster } from "@/components/ui/sonner"
 import { toast } from "sonner"
 import { Calendar as CalendarIcon, Check, Plus, Trash2, X } from "lucide-react"
@@ -29,6 +36,8 @@ interface Todo {
     parent_id?: string;
     deadline?: string;
 }
+
+type SortOption = 'created_desc' | 'created_asc' | 'deadline_asc' | 'alphabetical';
 
 type View = 'inbox' | 'today' | 'upcoming';
 
@@ -46,6 +55,7 @@ export default function App() {
     const [newTask, setNewTask] = useState('')
     const [deadline, setDeadline] = useState<Date | undefined>()
     const [isAddingTask, setIsAddingTask] = useState(false)
+    const [sortOrder, setSortOrder] = useState<SortOption>('created_desc')
 
     // Persistence
     useEffect(() => {
@@ -91,15 +101,36 @@ export default function App() {
     // Filtering
     const filterTodos = () => {
         const rootTodos = todos.filter(t => !t.parent_id)
+        let filtered = rootTodos
+
         if (currentView === 'today') {
             const today = new Date().toISOString().split('T')[0]
-            return rootTodos.filter(t => t.deadline === today)
-        }
-        if (currentView === 'upcoming') {
+            filtered = rootTodos.filter(t => t.deadline === today)
+        } else if (currentView === 'upcoming') {
             const today = new Date().toISOString().split('T')[0]
-            return rootTodos.filter(t => t.deadline && t.deadline > today)
+            filtered = rootTodos.filter(t => t.deadline && t.deadline > today)
         }
-        return rootTodos
+
+        return sortTodos(filtered)
+    }
+
+    const sortTodos = (todos: Todo[]) => {
+        return [...todos].sort((a, b) => {
+            switch (sortOrder) {
+                case 'created_desc':
+                    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                case 'created_asc':
+                    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+                case 'deadline_asc':
+                    if (!a.deadline) return 1
+                    if (!b.deadline) return -1
+                    return new Date(a.deadline).getTime() - new Date(b.deadline).getTime()
+                case 'alphabetical':
+                    return a.task.localeCompare(b.task)
+                default:
+                    return 0
+            }
+        })
     }
 
     const todoCounts = {
@@ -143,13 +174,26 @@ export default function App() {
                 todoCounts={todoCounts}
             />
             <SidebarInset>
-                <header className="sticky top-0 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4 z-10">
-                    <SidebarTrigger className="-ml-1" />
-                    <Separator orientation="vertical" className="mr-2 h-4" />
-                    <h1 className="font-semibold text-lg capitalize">{currentView}</h1>
-                    <span className="text-muted-foreground text-sm ml-2 font-normal">
-                        {format(new Date(), 'EEE, MMM d')}
-                    </span>
+                <header className="sticky top-0 flex h-16 shrink-0 items-center justify-between border-b bg-background px-4 z-10">
+                    <div className="flex items-center gap-2">
+                        <SidebarTrigger className="-ml-1" />
+                        <Separator orientation="vertical" className="mr-2 h-4" />
+                        <h1 className="font-semibold text-lg capitalize">{currentView}</h1>
+                        <span className="text-muted-foreground text-sm ml-2 font-normal hidden sm:inline">
+                            {format(new Date(), 'EEE, MMM d')}
+                        </span>
+                    </div>
+                    <Select value={sortOrder} onValueChange={(value) => setSortOrder(value as SortOption)}>
+                        <SelectTrigger className="w-[140px] h-8 text-xs">
+                            <SelectValue placeholder="Sort by" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="created_desc">Newest first</SelectItem>
+                            <SelectItem value="created_asc">Oldest first</SelectItem>
+                            <SelectItem value="deadline_asc">Deadline</SelectItem>
+                            <SelectItem value="alphabetical">A-Z</SelectItem>
+                        </SelectContent>
+                    </Select>
                 </header>
 
                 <div className="flex flex-1 flex-col gap-4 p-4 lg:p-6 max-w-4xl mx-auto w-full">
@@ -222,14 +266,19 @@ export default function App() {
                                                 {todo.task}
                                             </span>
 
-                                            {(todo.deadline || currentView === 'upcoming') && (
-                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                    <CalendarIcon className="size-3" />
-                                                    <span className={cn(todo.deadline === new Date().toISOString().split('T')[0] && "text-green-600 font-medium")}>
-                                                        {todo.deadline ? format(new Date(todo.deadline), "d MMM") : "No date"}
-                                                    </span>
-                                                </div>
-                                            )}
+                                            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+                                                <span className="text-[10px] opacity-70">
+                                                    Added {format(new Date(todo.created_at), "MMM d")}
+                                                </span>
+                                                {(todo.deadline || currentView === 'upcoming') && (
+                                                    <div className="flex items-center gap-1">
+                                                        <CalendarIcon className="size-3" />
+                                                        <span className={cn(todo.deadline === new Date().toISOString().split('T')[0] && "text-green-600 font-medium")}>
+                                                            {todo.deadline ? format(new Date(todo.deadline), "d MMM") : "No date"}
+                                                        </span>
+                                                    </div>
+                                                )}
+                                            </div>
 
                                             {/* Subtasks */}
                                             <div className="mt-1 ml-1 pl-4 border-l border-muted/50 space-y-1">
