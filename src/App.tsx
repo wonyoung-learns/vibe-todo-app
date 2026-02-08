@@ -1,7 +1,26 @@
-import React, { useState, useEffect } from 'react'
-import { Plus, Trash2, Check, LogOut, Calendar, Clock, CheckSquare } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect } from 'react'
+import {
+    SidebarProvider,
+    SidebarTrigger,
+    SidebarInset,
+    SidebarSeparator
+} from "@/components/ui/sidebar"
+import { AppSidebar } from "@/components/app-sidebar"
+import { Separator } from "@/components/ui/separator"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Card } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Calendar } from "@/components/ui/calendar"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { Toaster } from "@/components/ui/sonner"
+import { toast } from "sonner"
+import { Calendar as CalendarIcon, Check, Plus, Trash2, X } from "lucide-react"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 
+// Types
 interface Todo {
     id: string;
     task: string;
@@ -11,17 +30,24 @@ interface Todo {
     deadline?: string;
 }
 
-function App() {
-    const [todos, setTodos] = useState<Todo[]>(() => {
-        const saved = localStorage.getItem('vibe_todos')
-        return saved ? JSON.parse(saved) : []
-    })
-    const [newTask, setNewTask] = useState('')
-    const [deadline, setDeadline] = useState('')
+type View = 'inbox' | 'today' | 'upcoming';
+
+export default function App() {
     const [isLoggedIn, setIsLoggedIn] = useState(() => {
         return localStorage.getItem('vibe_session') === 'true'
     })
 
+    const [todos, setTodos] = useState<Todo[]>(() => {
+        const saved = localStorage.getItem('vibe_todos')
+        return saved ? JSON.parse(saved) : []
+    })
+
+    const [currentView, setCurrentView] = useState<View>('inbox')
+    const [newTask, setNewTask] = useState('')
+    const [deadline, setDeadline] = useState<Date | undefined>()
+    const [isAddingTask, setIsAddingTask] = useState(false)
+
+    // Persistence
     useEffect(() => {
         localStorage.setItem('vibe_todos', JSON.stringify(todos))
     }, [todos])
@@ -30,6 +56,7 @@ function App() {
         localStorage.setItem('vibe_session', String(isLoggedIn))
     }, [isLoggedIn])
 
+    // Actions
     const addTodo = (parent_id?: string, specificTask?: string) => {
         const taskText = specificTask || newTask
         if (!taskText.trim()) return
@@ -40,13 +67,15 @@ function App() {
             is_completed: false,
             created_at: new Date().toISOString(),
             parent_id,
-            deadline: parent_id ? undefined : (deadline || undefined)
+            deadline: parent_id ? undefined : (deadline ? deadline.toISOString().split('T')[0] : (currentView === 'today' ? new Date().toISOString().split('T')[0] : undefined))
         }
 
         setTodos([todo, ...todos])
         if (!parent_id) {
             setNewTask('')
-            setDeadline('')
+            setDeadline(undefined)
+            setIsAddingTask(false)
+            toast.success("Task added successfully")
         }
     }
 
@@ -56,219 +85,225 @@ function App() {
 
     const deleteTodo = (id: string) => {
         setTodos(prev => prev.filter(t => t.id !== id && t.parent_id !== id))
+        toast.message("Task deleted")
     }
 
+    // Filtering
+    const filterTodos = () => {
+        const rootTodos = todos.filter(t => !t.parent_id)
+        if (currentView === 'today') {
+            const today = new Date().toISOString().split('T')[0]
+            return rootTodos.filter(t => t.deadline === today)
+        }
+        if (currentView === 'upcoming') {
+            const today = new Date().toISOString().split('T')[0]
+            return rootTodos.filter(t => t.deadline && t.deadline > today)
+        }
+        return rootTodos
+    }
+
+    const todoCounts = {
+        inbox: todos.filter(t => !t.parent_id).length,
+        today: todos.filter(t => !t.parent_id && t.deadline === new Date().toISOString().split('T')[0]).length,
+        upcoming: todos.filter(t => !t.parent_id && t.deadline && t.deadline > new Date().toISOString().split('T')[0]).length
+    }
+
+    // Login Screen
     if (!isLoggedIn) {
         return (
-            <div className="min-h-screen w-full flex items-center justify-center bg-white/30 p-6">
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="glass-card max-w-md w-full p-10 rounded-[32px] text-center"
-                >
-                    <h1 className="title-outfit text-5xl font-bold bg-gradient-to-br from-vibe-primary via-vibe-secondary to-vibe-accent bg-clip-text text-transparent mb-4">
-                        VIBE TODO
-                    </h1>
-                    <p className="text-slate-500 mb-8 font-medium italic">Elevate your productivity with a modern vibe.</p>
-                    <button
-                        onClick={() => setIsLoggedIn(true)}
-                        className="w-full py-4 px-6 bg-vibe-primary text-white rounded-2xl font-semibold shadow-lg shadow-indigo-100 hover:shadow-indigo-200 hover:-translate-y-0.5"
-                    >
-                        Get Started
-                    </button>
-                </motion.div>
+            <div className="min-h-screen flex items-center justify-center bg-gray-50/50 p-4">
+                <Card className="w-full max-w-md p-8 shadow-lg">
+                    <div className="flex flex-col items-center gap-6 text-center">
+                        <div className="flex size-16 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-sm">
+                            <Check className="size-8" strokeWidth={3} />
+                        </div>
+                        <div className="space-y-2">
+                            <h1 className="text-3xl font-bold tracking-tight">Todoist v2</h1>
+                            <p className="text-muted-foreground">Organize your work and life, finally.</p>
+                        </div>
+                        <Button
+                            size="lg"
+                            className="w-full font-semibold text-base h-12"
+                            onClick={() => setIsLoggedIn(true)}
+                        >
+                            Get Started
+                        </Button>
+                    </div>
+                </Card>
             </div>
         )
     }
 
     return (
-        <div className="min-h-screen w-full bg-transparent p-4 md:p-8 lg:p-12 flex justify-center items-start">
-            <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <SidebarProvider>
+            <AppSidebar
+                currentView={currentView}
+                setCurrentView={setCurrentView}
+                setIsLoggedIn={setIsLoggedIn}
+                todoCounts={todoCounts}
+            />
+            <SidebarInset>
+                <header className="sticky top-0 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4 z-10">
+                    <SidebarTrigger className="-ml-1" />
+                    <Separator orientation="vertical" className="mr-2 h-4" />
+                    <h1 className="font-semibold text-lg capitalize">{currentView}</h1>
+                    <span className="text-muted-foreground text-sm ml-2 font-normal">
+                        {format(new Date(), 'EEE, MMM d')}
+                    </span>
+                </header>
 
-                {/* Header Section - Bento Card 1 */}
-                <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="lg:col-span-12 glass-card p-6 rounded-[32px] flex flex-col md:flex-row justify-between items-center gap-4"
-                >
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-vibe-primary rounded-2xl flex items-center justify-center text-white shadow-lg shadow-indigo-100">
-                            <CheckSquare size={24} />
-                        </div>
-                        <div>
-                            <h1 className="title-outfit text-2xl font-bold text-slate-800 leading-none">VIBE TODO</h1>
-                            <p className="text-sm text-slate-400 font-medium tracking-tight mt-1">Design your productivity</p>
-                        </div>
-                    </div>
-                    <button
-                        onClick={() => setIsLoggedIn(false)}
-                        className="flex items-center gap-2 group px-4 py-2 hover:bg-slate-50 rounded-xl transition-colors text-slate-500 font-medium"
-                    >
-                        <LogOut size={18} className="group-hover:-translate-x-1 transition-transform" />
-                        Logout
-                    </button>
-                </motion.div>
-
-                {/* Input Section - Bento Card 2 */}
-                <motion.div
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.1 }}
-                    className="lg:col-span-4 glass-card p-8 rounded-[32px] lg:sticky lg:top-8"
-                >
-                    <h2 className="title-outfit text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
-                        <span className="w-2 h-6 bg-vibe-secondary rounded-full"></span>
-                        Create Vibe
-                    </h2>
-
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Task Description</label>
-                            <input
-                                type="text"
-                                value={newTask}
-                                onChange={(e) => setNewTask(e.target.value)}
-                                placeholder="What's your next vibe?"
-                                className="w-full p-4 bg-slate-50/50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-vibe-primary/10 focus:border-vibe-primary transition-all text-slate-700 placeholder:text-slate-300"
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Deadline Date</label>
-                            <div className="relative">
-                                <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" size={18} />
-                                <input
-                                    type="date"
-                                    value={deadline}
-                                    onChange={(e) => setDeadline(e.target.value)}
-                                    className="w-full p-4 pl-12 bg-slate-50/50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-vibe-primary/10 focus:border-vibe-primary transition-all text-slate-700 appearance-none"
-                                />
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={() => addTodo()}
-                            className="w-full p-4 bg-vibe-primary text-white rounded-2xl font-bold shadow-lg shadow-indigo-100 hover:shadow-indigo-200 transition-all flex items-center justify-center gap-2 mt-4"
-                        >
-                            <Plus size={20} />
-                            Add to List
-                        </button>
-                    </div>
-                </motion.div>
-
-                {/* Todo List Section - Bento Card 3 */}
-                <motion.div
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: 0.2 }}
-                    className="lg:col-span-8 glass-card p-8 rounded-[32px]"
-                >
-                    <div className="flex justify-between items-center mb-8">
-                        <h2 className="title-outfit text-xl font-bold text-slate-800 flex items-center gap-2">
-                            <span className="w-2 h-6 bg-vibe-accent rounded-full"></span>
-                            Your Vibes
-                        </h2>
-                        <div className="px-3 py-1 bg-slate-50 border border-slate-100 rounded-full text-xs font-bold text-slate-400">
-                            {todos.filter(t => !t.parent_id).length} Active
-                        </div>
-                    </div>
-
-                    <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
-                        <AnimatePresence>
-                            {todos.filter(todo => !todo.parent_id).map(todo => (
-                                <motion.div
-                                    key={todo.id}
-                                    layout
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, scale: 0.95 }}
-                                    className="p-4 rounded-2xl bg-white/40 border border-slate-100 shadow-sm hover:shadow-md transition-shadow group flex flex-col gap-3"
-                                >
-                                    <div className="flex items-center justify-between gap-4">
-                                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                                            <button
-                                                onClick={() => toggleTodo(todo.id)}
-                                                className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${todo.is_completed
-                                                        ? "bg-vibe-accent border-vibe-accent text-white"
-                                                        : "border-slate-200 hover:border-vibe-accent text-transparent"
-                                                    }`}
-                                            >
-                                                <Check size={14} />
-                                            </button>
-                                            <div className="flex flex-col min-w-0">
-                                                <span className={`text-base font-semibold truncate ${todo.is_completed ? "text-slate-300 line-through" : "text-slate-700"}`}>
-                                                    {todo.task}
-                                                </span>
-                                                {todo.deadline && (
-                                                    <span className="text-[10px] font-bold text-vibe-secondary uppercase flex items-center gap-1 mt-0.5">
-                                                        <Clock size={10} />
-                                                        Deadline: {new Date(todo.deadline).toLocaleDateString()}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <button
-                                            onClick={() => deleteTodo(todo.id)}
-                                            className="p-2 text-slate-200 hover:text-red-400 hover:bg-red-50 rounded-xl transition-all opacity-0 group-hover:opacity-100"
-                                        >
-                                            <Trash2 size={18} />
-                                        </button>
-                                    </div>
-
-                                    {/* Subtasks Section */}
-                                    <div className="ml-10 space-y-2 border-l-2 border-slate-100/50 pl-4 py-1">
-                                        {todos.filter(sub => sub.parent_id === todo.id).map(subtask => (
-                                            <div key={subtask.id} className="flex items-center justify-between gap-3 group/sub">
-                                                <div className="flex items-center gap-3">
-                                                    <button
-                                                        onClick={() => toggleTodo(subtask.id)}
-                                                        className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${subtask.is_completed
-                                                                ? "bg-slate-300 border-slate-300 text-white"
-                                                                : "border-slate-200 hover:border-slate-300 shadow-sm"
-                                                            }`}
-                                                    >
-                                                        <Check size={10} />
-                                                    </button>
-                                                    <span className={`text-sm font-medium ${subtask.is_completed ? "text-slate-300 line-through font-normal" : "text-slate-500"}`}>
-                                                        {subtask.task}
-                                                    </span>
-                                                </div>
-                                                <button
-                                                    onClick={() => deleteTodo(subtask.id)}
-                                                    className="p-1 text-slate-200 hover:text-red-400 opacity-0 group-hover/sub:opacity-100 transition-all font-medium"
-                                                >
-                                                    <Trash2 size={12} />
-                                                </button>
-                                            </div>
-                                        ))}
-                                        <div className="flex items-center gap-2 mt-2">
-                                            <input
-                                                type="text"
-                                                placeholder="Add sub-vibe..."
-                                                onKeyDown={(e) => {
-                                                    if (e.key === 'Enter' && (e.target as HTMLInputElement).value) {
-                                                        addTodo(todo.id, (e.target as HTMLInputElement).value)
-                                                            ; (e.target as HTMLInputElement).value = ''
-                                                    }
-                                                }}
-                                                className="flex-1 text-sm py-1 px-3 bg-slate-50/50 rounded-lg focus:outline-none focus:bg-slate-50 text-slate-500 placeholder:text-slate-300 border border-transparent focus:border-slate-100 transition-all font-medium"
-                                            />
+                <div className="flex flex-1 flex-col gap-4 p-4 lg:p-6 max-w-4xl mx-auto w-full">
+                    {/* Add Task Input (Always visible at top or conditionally) */}
+                    <div className="mb-2">
+                        {!isAddingTask ? (
+                            <Button
+                                variant="ghost"
+                                className="w-full justify-start text-muted-foreground hover:text-primary gap-2 pl-0 py-6 h-auto"
+                                onClick={() => setIsAddingTask(true)}
+                            >
+                                <div className="flex items-center justify-center size-6 rounded-full text-primary transition-colors">
+                                    <Plus className="size-5" />
+                                </div>
+                                <span className="text-base font-medium">Add task</span>
+                            </Button>
+                        ) : (
+                            <Card className="p-4 border-muted-foreground/20 shadow-sm animate-in fade-in zoom-in-95 duration-200">
+                                <div className="flex flex-col gap-3">
+                                    <Input
+                                        autoFocus
+                                        placeholder="Task name"
+                                        value={newTask}
+                                        onChange={(e) => setNewTask(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') addTodo()
+                                            if (e.key === 'Escape') setIsAddingTask(false)
+                                        }}
+                                        className="border-none shadow-none focus-visible:ring-0 px-0 text-base font-medium placeholder:font-normal h-auto min-h-[auto]"
+                                    />
+                                    <div className="flex items-center justify-between border-t pt-3 mt-1">
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button variant="outline" size="sm" className={cn("gap-2 h-8 font-normal", !deadline && "text-muted-foreground border-dashed")}>
+                                                    <CalendarIcon className="size-3.5" />
+                                                    {deadline ? format(deadline, "PPP") : "Due date"}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar
+                                                    mode="single"
+                                                    selected={deadline}
+                                                    onSelect={setDeadline}
+                                                    initialFocus
+                                                />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <div className="flex gap-2">
+                                            <Button variant="ghost" size="sm" onClick={() => setIsAddingTask(false)}>Cancel</Button>
+                                            <Button size="sm" onClick={() => addTodo()} disabled={!newTask.trim()}>Add Task</Button>
                                         </div>
                                     </div>
-                                </motion.div>
-                            ))}
-                        </AnimatePresence>
-                        {todos.filter(t => !t.parent_id).length === 0 && (
-                            <div className="h-64 flex flex-col items-center justify-center text-slate-200 gap-3 border-2 border-dashed border-slate-50 rounded-[32px]">
-                                <CheckSquare size={48} strokeWidth={1} />
-                                <p className="font-semibold text-slate-300">No vibes yet. Start creating!</p>
-                            </div>
+                                </div>
+                            </Card>
                         )}
                     </div>
-                </motion.div>
-            </div>
-        </div>
+
+                    <ScrollArea className="h-[calc(100vh-12rem)] pr-4">
+                        <div className="flex flex-col gap-1 pb-12">
+                            {filterTodos().map(todo => (
+                                <div key={todo.id} className="group relative">
+                                    <div className="flex items-start gap-3 py-3 px-1 rounded-lg hover:bg-muted/40 transition-colors group/row">
+                                        <Checkbox
+                                            className="mt-1 rounded-full size-5 data-[state=checked]:bg-primary data-[state=checked]:border-primary border-muted-foreground/30"
+                                            checked={todo.is_completed}
+                                            onCheckedChange={() => toggleTodo(todo.id)}
+                                        />
+                                        <div className="flex-1 min-w-0 grid gap-1">
+                                            <span className={cn("text-[15px] font-medium leading-relaxed transition-all", todo.is_completed && "text-muted-foreground line-through")}>
+                                                {todo.task}
+                                            </span>
+
+                                            {(todo.deadline || currentView === 'upcoming') && (
+                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                    <CalendarIcon className="size-3" />
+                                                    <span className={cn(todo.deadline === new Date().toISOString().split('T')[0] && "text-green-600 font-medium")}>
+                                                        {todo.deadline ? format(new Date(todo.deadline), "d MMM") : "No date"}
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {/* Subtasks */}
+                                            <div className="mt-1 ml-1 pl-4 border-l border-muted/50 space-y-1">
+                                                {todos.filter(sub => sub.parent_id === todo.id).map(subtask => (
+                                                    <div key={subtask.id} className="flex items-center gap-2 py-1 group/sub">
+                                                        <Checkbox
+                                                            className="size-3.5 rounded-full"
+                                                            checked={subtask.is_completed}
+                                                            onCheckedChange={() => toggleTodo(subtask.id)}
+                                                        />
+                                                        <span className={cn("text-sm flex-1 truncate", subtask.is_completed && "text-muted-foreground line-through")}>
+                                                            {subtask.task}
+                                                        </span>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="size-5 opacity-0 group-hover/sub:opacity-100 text-muted-foreground hover:text-destructive"
+                                                            onClick={() => deleteTodo(subtask.id)}
+                                                        >
+                                                            <X className="size-3" />
+                                                        </Button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="opacity-0 group-hover/row:opacity-100 flex items-center transition-opacity">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="size-8 text-muted-foreground hover:text-destructive"
+                                                onClick={() => deleteTodo(todo.id)}
+                                            >
+                                                <Trash2 className="size-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+
+                            {filterTodos().length === 0 && (
+                                <div className="flex flex-col items-center justify-center py-16 text-center text-muted-foreground">
+                                    <div className="bg-muted/40 p-4 rounded-full mb-4">
+                                        <Inbox className="size-8 text-muted-foreground/50" />
+                                    </div>
+                                    <p className="font-medium">All caught up</p>
+                                    <p className="text-sm">You have no tasks in {currentView}.</p>
+                                </div>
+                            )}
+                        </div>
+                    </ScrollArea>
+                </div>
+            </SidebarInset>
+            <Toaster />
+        </SidebarProvider>
     )
 }
 
-export default App
+function Inbox(props: any) {
+    return (
+        <svg
+            {...props}
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
+            <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
+        </svg>
+    )
+}
